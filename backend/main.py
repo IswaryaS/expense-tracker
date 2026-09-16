@@ -4,15 +4,15 @@
 import base64
 import os
 from datetime import date, datetime
-from enum import Enum
 from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile, Depends, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 from dotenv import load_dotenv
+
+from backend.database import get_session
+from backend.schemas import Bill, BillCategory, BillResponse, BillStatus, BillUpdate
 
 # --------------------------------------------------------------
 #  Load environment (Groq API key)
@@ -29,84 +29,6 @@ if not GROQ_API_KEY:
 app = FastAPI(title="Expense Tracker (Groq OCR)")
 router = APIRouter()
 app.include_router(router)  # <-- registers the /bills/upload/ endpoint
-
-# --------------------------------------------------------------
-#  SQLite DB (for the prototype)
-# --------------------------------------------------------------
-sqlite_file = "bills.db"
-sqlite_url = f"sqlite:///{sqlite_file}"
-engine = create_engine(sqlite_url, echo=False)
-
-# --------------------------------------------------------------
-#  Enums & DB model
-# --------------------------------------------------------------
-
-
-class BillStatus(str, Enum):
-    pending = "pending"
-    approved = "approved"
-    rejected = "rejected"
-
-
-class Bill(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    bill_date: date
-    vendor_name: str
-    total_amount: float
-
-    status: BillStatus = Field(default=BillStatus.pending, index=True)
-    extracted_at: datetime = Field(default_factory=datetime.utcnow)
-    reviewed_at: Optional[datetime] = None
-    reviewer_comment: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-def get_engine() -> "Engine":
-    """
-    Returns a SQLAlchemy engine. If the DB file does not exist yet we
-    create the file *and* the tables.
-    """
-
-    SQLModel.metadata.create_all(engine)
-
-    return engine
-
-# --------------------------------------------------------------
-#  Pydantic response model (used for OpenAPI docs)
-# --------------------------------------------------------------
-
-
-class BillResponse(BaseModel):
-    id: int
-    bill_date: date
-    vendor_name: str
-    total_amount: float
-    status: BillStatus
-    extracted_at: datetime
-
-    class Config:
-        from_attributes = True
-
-# A clean payload schema for updating bills
-
-
-class BillUpdate(BaseModel):
-    bill_date: Optional[date] = None
-    vendor_name: Optional[str] = None
-    total_amount: Optional[float] = None
-    status: Optional[BillStatus] = None
-    reviewer_comment: Optional[str] = None
-
-# --------------------------------------------------------------
-#  Dependency – new Session per request
-# --------------------------------------------------------------
-
-
-def get_session():
-    with Session(get_engine()) as session:
-        yield session
 
 
 # --------------------------------------------------------------
@@ -185,7 +107,7 @@ async def extract_bill_data_with_groq(image_bytes: bytes) -> dict:
 
 
 @router.post(
-    "/bills/upload/",
+    "/bills/upload",
     response_model=BillResponse,
     summary="Upload a receipt image, extract data via Groq, store as pending",
     tags=["Bills"],
@@ -242,6 +164,7 @@ def review_bills(
     limit: int = Query(50, le=200),
     status: Optional[BillStatus] = None,
     vendor_name: Optional[str] = None,
+    category: Optional[BillCategory] = None,
 ):
     """
     Return a paginated list of bills.
@@ -254,6 +177,8 @@ def review_bills(
     )
     if status:
         stmt = stmt.where(Bill.status == status)
+    if status:
+        stmt = stmt.where(Bill.category == category)
     if vendor_name:
         stmt = stmt.where(Bill.vendor_name.ilike(f"%{vendor_name}%"))
 
@@ -274,6 +199,7 @@ def update_bill_full(bill_id: int, updated_bill: BillUpdate, session: Session = 
     # Extract data safely, bypassing strict model validation rules during dump
     bill_data = updated_bill.model_dump(mode="python", exclude={"id"})
     db_bill.sqlmodel_update(bill_data)
+    db_bill.reviewed_at = datetime.utcnow()
 
     session.add(db_bill)
     session.commit()

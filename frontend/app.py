@@ -57,6 +57,56 @@ with tab_review:
         st.write(
             "Double-click any cell below to fix AI parsing mistakes, then click **Save Changes**.")
 
+        # --- ADD THIS INSIDE TAB_REVIEW, ABOVE THE DATA EDITOR ---
+    if not df.empty:
+        st.markdown("### 📊 Monthly Financial Overviews")
+
+        # Create temporary helper columns for grouping
+        # Convert dates to a clean 'YYYY-MM' string format
+        df_metrics = df.copy()
+        df_metrics["Month"] = pd.to_datetime(
+            df_metrics["bill_date"]).dt.strftime("%Y-%m")
+
+        # Filter for approved bills only (or include everything depending on preference)
+        approved_only = df_metrics[df_metrics["status"] == "approved"]
+
+        if not approved_only.empty:
+            # 1. Total Spending per Month
+            monthly_totals = approved_only.groupby(
+                "Month")["total_amount"].sum().reset_index()
+
+            # 2. Total Spending per Category per Month
+            categorical_totals = approved_only.groupby(["Month", "category"])[
+                "total_amount"].sum().reset_index()
+
+            # Display the summaries using clean markdown layouts or metrics
+            col_monthly, col_category = st.columns(2)
+
+            with col_monthly:
+                st.markdown("**Total Approved Expenses by Month:**")
+                # Displays a quick scannable summary table
+                st.dataframe(
+                    monthly_totals.rename(
+                        columns={"total_amount": "Total ($)"}),
+                    hide_index=True,
+                    use_container_width=True
+                )
+
+            with col_category:
+                st.markdown("**Breakdown by Category:**")
+                st.dataframe(
+                    categorical_totals.rename(
+                        columns={"total_amount": "Total ($)"}),
+                    hide_index=True,
+                    use_container_width=True
+                )
+        else:
+            st.info(
+                "💡 Tip: Set a bill's status to **approved** and sync to see data reflected in monthly overviews.")
+
+        st.divider()  # Adds a clean separation line before the main editable grid
+    # ---------------------------------------------------------
+
         # st.data_editor creates a fully interactive CRUD spreadsheet UI
         edited_df = st.data_editor(
             df,

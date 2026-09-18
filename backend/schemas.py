@@ -50,8 +50,11 @@ class BillResponse(BaseModel):
     bill_date: date
     vendor_name: str
     total_amount: float
+    category: BillCategory
     status: BillStatus
     extracted_at: datetime
+    reviewer_comment: Optional[str]
+    reviewed_at: Optional[datetime]
 
     class Config:
         from_attributes = True

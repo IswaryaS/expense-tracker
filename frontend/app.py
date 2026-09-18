@@ -89,7 +89,7 @@ with tab_review:
                     monthly_totals.rename(
                         columns={"total_amount": "Total ($)"}),
                     hide_index=True,
-                    use_container_width=True
+                    width="stretch"
                 )
 
             with col_category:
@@ -98,7 +98,7 @@ with tab_review:
                     categorical_totals.rename(
                         columns={"total_amount": "Total ($)"}),
                     hide_index=True,
-                    use_container_width=True
+                    width="stretch"
                 )
         else:
             st.info(

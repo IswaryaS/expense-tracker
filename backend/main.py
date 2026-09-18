@@ -146,6 +146,7 @@ async def upload_bill(
         bill_date=billdate,
         vendor_name=vendor,
         total_amount=amount,
+        category=BillCategory.miscellaneous,
         status=BillStatus.pending,
     )
     session.add(new_bill)

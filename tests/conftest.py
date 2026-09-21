@@ -5,7 +5,6 @@ from sqlmodel.pool import StaticPool
 from backend.main import app
 from backend.database import get_session
 
-import backend.schemas
 
 # Create a clean, separate in-memory database for testing
 TEST_DATABASE_URL = "sqlite:///:memory:"

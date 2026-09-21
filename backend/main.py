@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from dotenv import load_dotenv
 
 from backend.database import get_session
-from backend.schemas import Bill, BillCategory, BillResponse, BillStatus, BillUpdate
+from backend.models import Bill, BillCategory, BillResponse, BillStatus, BillUpdate
 
 # --------------------------------------------------------------
 #  Load environment (Groq API key)

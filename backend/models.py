@@ -125,3 +125,12 @@ class Transaction(SQLModel, table=True):
     linked_bills: List[Bill] = Relationship(back_populates="transaction")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TransactionExtractItem(BaseModel):
+    booking_date: date = Field(description="The transaction execution date strictly formatted as YYYY-MM-DD")
+    description: str = Field(description="The full clean description or vendor name of the transaction")
+    amount: float = Field(description="The financial value. Positive for deposits/credits, negative for withdrawals/debits.")
+
+class ExtractedStatementPayload(BaseModel):
+    transactions: List[TransactionExtractItem] = Field(default=[], description="List of all extracted ledger transactions")

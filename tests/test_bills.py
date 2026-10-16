@@ -16,7 +16,7 @@ def test_read_bills_empty(client):
 
 
 def test_update_bill_status(client, session):
-    from backend.schemas import Bill
+    from backend.models import Bill
 
     # 1. Manually insert a mock pending bill into the test database
     db_bill = Bill(bill_date=date(2026, 3, 17),
@@ -85,7 +85,6 @@ async def test_extract_data_from_groq():
     assert result["bill_date"] == "2026-03-17"
 
 
-@pytest.mark.asyncio
 def test_upload_bill(client):
     """
     Verifies that the /bills/upload endpoint cleanly accepts multipart file payloads,

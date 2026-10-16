@@ -3,7 +3,7 @@ from sqlmodel import Session, SQLModel, create_engine
 # --------------------------------------------------------------
 #  SQLite DB (for the prototype)
 # --------------------------------------------------------------
-sqlite_file = "bills.db"
+sqlite_file = "expense_tracker.db"
 sqlite_url = f"sqlite:///{sqlite_file}"
 engine = create_engine(sqlite_url, echo=False)
 

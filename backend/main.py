@@ -12,7 +12,11 @@ from sqlmodel import Session, select
 from dotenv import load_dotenv
 
 from backend.database import get_session
-from backend.schemas import Bill, BillCategory, BillResponse, BillStatus, BillUpdate
+from backend.models import Bill, BillCategory, BillResponse, BillStatus, BillUpdate
+
+# 1. Properly import the router module using standard Python dot notation
+from backend.pdf_parser import router as statement_router
+from backend.accounts import router as account_router
 
 # --------------------------------------------------------------
 #  Load environment (Groq API key)
@@ -29,7 +33,8 @@ if not GROQ_API_KEY:
 app = FastAPI(title="Expense Tracker (Groq OCR)")
 router = APIRouter()
 app.include_router(router)  # <-- registers the /bills/upload/ endpoint
-
+app.include_router(statement_router)
+app.include_router(account_router)
 
 # --------------------------------------------------------------
 #  Groq OCR helper

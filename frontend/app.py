@@ -7,12 +7,19 @@ FASTAPI_UPLOAD_URL = "http://localhost:8000/bills/upload"
 FASTAPI_BILLS_URL = "http://localhost:8000/bills"
 FASTAPI_REVIEW_BILLS_URL = "http://localhost:8000/bills/review"
 
-st.set_page_config(layout="wide")
-st.title("🧾 Bill Processing Pipeline (Groq AI)")
+# Import your new statement rendering function from statement.py
+from statement import render_bank_statement_upload_tab
+
+st.set_page_config(page_title="Expense Tracker", layout="wide")
+
+st.title("💰 Expense Tracker Dashboard")
 
 # Create separate views for your workflow
-tab_upload, tab_review = st.tabs(
-    ["🚀 Upload & Parse Bill", "🔍 Review & Approve Expenses"])
+tab_upload, tab_review, tab_statements = st.tabs([
+    "🚀 Upload & Parse Bill", 
+    "🔍 Review & Approve Expenses",
+    "🏦 Bank Statements"
+])
 
 # --- TAB 1: UPLOAD & AUTOMATIC PARSING ---
 with tab_upload:
@@ -171,3 +178,6 @@ with tab_review:
 
     else:
         st.info("No records found in the database. Upload a bill to populate.")
+
+with tab_statements:
+    render_bank_statement_upload_tab()

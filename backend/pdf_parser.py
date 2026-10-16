@@ -11,7 +11,7 @@ from typing import List
 from backend.database import get_session
 from backend.models import ExtractedStatementPayload, Account, Transaction, TransactionSource
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/accounts")
 
 # Tuned heuristics for high-signal financial tables
 TRANSACTION_KEYWORDS = ["ledger", "date", "description", "withdrawal", "deposit", "balance"]
@@ -219,8 +219,46 @@ async def upload_bank_statement(
         )
 
     return {
-        "status": "success",
-        "account_id": account.id,
-        "account_new_balance": account.current_balance,
-        "transactions_imported_count": len(db_transactions)
-    }
+            "status": "success",
+            "account_id": account.id,
+            "account_new_balance": account.current_balance,
+            "transactions_imported_count": len(db_transactions),
+            # Include the list of transactions so Streamlit can render the st.data_editor
+            "transactions": [
+                {
+                    "id": tx.id,
+                    "booking_date": tx.booking_date,
+                    "description": tx.description,
+                    "amount": tx.amount,
+                    "category": tx.category
+                } for tx in db_transactions
+            ]
+        }
+
+@router.put("/{account_id}/transactions/batch", status_code=201)
+async def save_batch_transactions(
+    account_id: int, 
+    payload: ExtractedStatementPayload, 
+    session: Session = Depends(get_session)
+):
+    """Save a batch of verified transactions extracted from a bank statement."""
+    # Verify account exists
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    saved_count = 0
+    for item in payload.transactions:
+        db_transaction = Transaction(
+            booking_date=item.booking_date,
+            description=item.description,
+            amount=item.amount,
+            account_id=account_id,
+            source=TransactionSource.bank_statement,
+            category="Uncategorized" # You can add auto-categorization here later if desired
+        )
+        session.add(db_transaction)
+        saved_count += 1
+
+    session.commit()
+    return {"message": f"Successfully saved {saved_count} transactions.", "account_id": account_id}

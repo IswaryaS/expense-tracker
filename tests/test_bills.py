@@ -6,8 +6,7 @@ from datetime import date
 
 import respx
 import httpx
-from backend.main import extract_bill_data_with_groq
-
+from backend.services.ai_analyzer import extract_bill_data_with_groq
 
 def test_read_bills_empty(client):
     response = client.get("/bills/review")
@@ -43,9 +42,6 @@ def test_update_bill_status(client, session):
     assert data["reviewer_comment"] == "Verified manually"
     # Ensures your timestamp automation worked!
     assert data["reviewed_at"] is not None
-
-# <-- Import your actual function here
-
 
 @pytest.mark.asyncio  # Required for async test loops
 @respx.mock           # Automatically intercepts all httpx requests in this test
@@ -84,40 +80,38 @@ async def test_extract_data_from_groq():
     assert result["total_amount"] == 250.75
     assert result["bill_date"] == "2026-03-17"
 
-
-def test_upload_bill(client):
+@pytest.mark.asyncio
+@patch("backend.routers.bills.extract_bill_data_with_groq", new_callable=AsyncMock)
+async def test_upload_bill(mock_extract_from_groq, client):
     """
     Verifies that the /bills/upload endpoint cleanly accepts multipart file payloads,
     intercepts the external Groq network request, and saves a pending record.
     """
 
-    # 1. Patch the exact module path where your FastAPI endpoint *imports* the function
-    with patch("backend.main.extract_bill_data_with_groq", new_callable=AsyncMock) as mock_extract_from_groq:
+    # Structure the mock data that your prompt typically instructs Groq to output
+    mock_extract_from_groq.return_value = {
+        "bill_date": "2026-03-17",
+        "vendor_name": "Groq Mocked Vendor",
+        "total_amount": 250.75
+    }
 
-        # Structure the mock data that your prompt typically instructs Groq to output
-        mock_extract_from_groq.return_value = {
-            "bill_date": "2026-03-17",
-            "vendor_name": "Groq Mocked Vendor",
-            "total_amount": 250.75
-        }
+    # Simulate an image file uploading via multipart form-data
+    mock_image_file = io.BytesIO(b"mock-image-binary-bytes")
+    payload_files = {"file": mock_image_file}
 
-        # Simulate an image file uploading via multipart form-data
-        mock_image_file = io.BytesIO(b"mock-image-binary-bytes")
-        payload_files = {"file": mock_image_file}
+    # Trigger the POST endpoint
+    response = client.post("/bills/upload", files=payload_files)
 
-        # Trigger the POST endpoint
-        response = client.post("/bills/upload", files=payload_files)
+    # 5. Assertions: Confirm network structures and field updates flow seamlessly
+    assert response.status_code == 200
 
-        # 5. Assertions: Confirm network structures and field updates flow seamlessly
-        assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["vendor_name"] == "Groq Mocked Vendor"
+    assert response_data["total_amount"] == 250.75
+    assert response_data["category"] == "Miscellaneous"
+    # Should default to pending validation state
+    assert response_data["status"] == "pending"
+    # Verifies row successfully committed to SQLite
+    assert response_data["id"] is not None
 
-        response_data = response.json()
-        assert response_data["vendor_name"] == "Groq Mocked Vendor"
-        assert response_data["total_amount"] == 250.75
-        assert response_data["category"] == "Miscellaneous"
-        # Should default to pending validation state
-        assert response_data["status"] == "pending"
-        # Verifies row successfully committed to SQLite
-        assert response_data["id"] is not None
-
-        mock_extract_from_groq.assert_called_once()
+    mock_extract_from_groq.assert_called_once()
